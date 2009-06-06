@@ -1,5 +1,5 @@
 %%%----------------------------------------------------------------------
-%%% File    : sauron.erl
+%%% File    : mongodb_bson.erl
 %%% Author  : Elias Torres <elias@torrez.us>
 %%% Purpose : Erlang MongoDB BSON Manipulator
 %%%----------------------------------------------------------------------
@@ -23,20 +23,14 @@ hexstr_to_bin([X,Y|T], Acc) ->
   {ok, [V], []} = io_lib:fread("~16u", [X,Y]),
   hexstr_to_bin(T, [V | Acc]).
 
-encode({obj, Items}) when is_list(Items) ->
-  Binary = encode_elements(Items, []),
-  <<(size(Binary)+5):32/little-signed, Binary/binary, 0:8>>.
-
-encode_elements([Item|Rest], Accum) ->
-  encode_elements(Rest, [encode_element(Item) | Accum]);
-  
-encode_elements([], Accum) ->
-  list_to_binary(lists:reverse(Accum)).
+encode({obj,Items}) when is_list(Items) ->
+    Bin = list_to_binary(lists:map(fun encode_element/1, Items)),
+    <<(size(Bin)+5):32/little-signed,Bin/binary,0:8>>.
 
 encode_element({Name, Value}) when is_list(Name), is_float(Value) ->
   NameEncoded = encode_cstring(Name),
   <<1, NameEncoded/binary,  Value:64/little-signed-float>>;
-  
+
 encode_element({Name, Value}) when is_list(Name), is_list(Value) ->
   NameEncoded = encode_cstring(Name),
   ValueEncoded = encode_cstring(Value),
@@ -81,16 +75,16 @@ encode_element({Name, false}) when is_list(Name) ->
   StringEncoded = encode_cstring(Name),
   <<8, StringEncoded/binary, 1:8>>;
 
-encode_element({Name, {MegaSecs, Secs, MicroSecs}}) 
-      when  is_list(Name), 
-            is_integer(MegaSecs), 
-            is_integer(Secs), 
+encode_element({Name, {MegaSecs, Secs, MicroSecs}})
+      when  is_list(Name),
+            is_integer(MegaSecs),
+            is_integer(Secs),
             is_integer(MicroSecs) ->
   StringEncoded = encode_cstring(Name),
   Unix = MegaSecs * 1000000 + Secs,
   Millis = Unix * 1000 + trunc(MicroSecs / 1000),
   <<9, StringEncoded/binary, Millis:64/little-signed>>;
-  
+
 encode_element({Name, null}) when is_list(Name) ->
   StringEncoded = encode_cstring(Name),
   <<10, StringEncoded/binary>>;
@@ -101,8 +95,8 @@ encode_element({Name, {regex, Expression, Flags}}) when is_list(Name), is_list(E
   FlagsEncoded = encode_cstring(Flags),
   <<11, StringEncoded/binary, ExpressionEncoded/binary, FlagsEncoded/binary>>;
 
-encode_element({Name, {ref, Collection, 
-      <<First:8/little-binary-unit:8, Second:4/little-binary-unit:8>>}}) 
+encode_element({Name, {ref, Collection,
+      <<First:8/little-binary-unit:8, Second:4/little-binary-unit:8>>}})
           when is_list(Name), is_list(Collection) ->
   StringEncoded = encode_cstring(Name),
   CollectionEncoded = encode_cstring(Collection),
@@ -121,10 +115,8 @@ encode_element({Name, Value}) when is_list(Name), is_integer(Value) ->
   <<16, StringEncoded/binary, Value:4/little-signed-unit:8>>.
 
 encode_cstring(String) when is_list(String) ->
-  UTF8 = xmerl_ucs:to_utf8(String),
-  Size = length(UTF8),
-  BinString = list_to_binary(UTF8),
-  <<BinString:Size/little-binary-unit:8, 0:8>>.
+    Bin = unicode:characters_to_binary([String]),
+    <<Bin/binary, 0:8>>.
 
 %% Size has to be greater than 4
 decode(<<Size:32/little-signed, Rest/binary>> = Binary) when byte_size(Binary) >= Size, Size > 4 ->
@@ -140,7 +132,7 @@ decode(Binary, _Size) ->
     {BSON, Rest} when byte_size(Rest) > 0 ->
       [BSON | decode(Rest)]
   end.
-  
+
 decode_next(<<0:8, Rest/binary>>, Accum) ->
   {{obj, lists:reverse(Accum)}, Rest};
 
@@ -148,15 +140,13 @@ decode_next(<<Type:8/little, Rest/binary>>, Accum) ->
   {Name, EncodedValue} = decode_cstring(Rest, []),
   {Value, Next} = decode_value(Type, EncodedValue),
   decode_next(Next, [{Name, Value}|Accum]).
-  
+
 decode_cstring(<<>> = _Binary, _Accum) ->
   throw({invalid_cstring});
-  
-decode_cstring(<<0:8, Rest/binary>>, Accum) ->
-  {xmerl_ucs:from_utf8(lists:reverse(Accum)), Rest};
-  
-decode_cstring(<<Char:8/little, Rest/binary>> = _Binary, Accum) ->
-  decode_cstring(Rest, [Char|Accum]).
+decode_cstring(<<0:8,Rest/binary>>, Acc) ->
+    {lists:reverse(Acc),Rest};
+decode_cstring(<<C/utf8,Rest/binary>>, Acc) ->
+    decode_cstring(Rest, [C|Acc]).
 
 decode_value(_Type = 1, <<Double:64/little-signed-float, Rest/binary>>) ->
   {Double, Rest};
@@ -165,18 +155,18 @@ decode_value(_Type = 2, <<Size:32/little-signed, Rest/binary>>)
     when size(Rest) =:= Size + 1 ->
   decode_cstring(Rest, []);
 
-decode_value(_Type = 3, <<Size:32/little-signed, Rest/binary>> = Binary) 
+decode_value(_Type = 3, <<Size:32/little-signed, Rest/binary>> = Binary)
     when size(Binary) >= Size ->
   decode_next(Rest, []);
 
-decode_value(_Type = 4, <<Size:32/little-signed, Data/binary>> = Binary) 
+decode_value(_Type = 4, <<Size:32/little-signed, Data/binary>> = Binary)
     when size(Binary) >= Size ->
   {{obj, Array}, Rest} = decode_next(Data, []),
   {{list,[Value || {_Key, Value} <- Array]}, Rest};
 
 decode_value(_Type = 5, <<_Size:32/little-signed, 2:8/little, BinSize:32/little-signed, BinData:BinSize/binary-little-unit:8, Rest/binary>>) ->
   {{binary, 2, BinData}, Rest};
-  
+
 decode_value(_Type = 5, <<Size:32/little-signed, SubType:8/little, BinData:Size/binary-little-unit:8, Rest/binary>>) ->
   {{binary, SubType, BinData}, Rest};
 
@@ -230,7 +220,7 @@ decode_value(_Type = 16, <<Integer:32/little-signed, Rest/binary>>) ->
 
 bson_test_() ->
 
-  Tests = [ 
+  Tests = [
       {"0c0000001061000100000000", {obj,[{"a", 1}]}},
       {"13000000106100010000001062000200000000", {obj,[{"a", 1},{"b", 2}]}},
       {"1300000002610007000000737472696e670000", {obj, [{"a", "string"}]}},
@@ -251,13 +241,13 @@ bson_test_() ->
   ],
 
   ToErlang = [?_assertEqual(Expected, decode(hexstr_to_bin(Hex))) || {Hex, Expected} <- Tests],
-  
+
   FromErlang = [?_assertEqual(hexstr_to_bin(Hex), encode(Expected)) || {Hex, Expected} <- Tests],
-  
+
   lists:append([ToErlang, FromErlang]).
-  
+
 bson_exception_test_() ->
-  
+
   ExceptionTests = [
     {"0400000000", {invalid_length}},
     {"0500000001", {invalid_cstring}},
@@ -265,5 +255,5 @@ bson_exception_test_() ->
     {"050000000000", {invalid_length}},
     {"0c00", {invalid_length}}
   ],
-  
+
   [?_assertThrow(Expected, decode(hexstr_to_bin(Hex))) || {Hex, Expected} <- ExceptionTests].
