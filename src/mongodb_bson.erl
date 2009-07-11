@@ -151,9 +151,16 @@ decode_cstring(<<C/utf8,Rest/binary>>, Acc) ->
 decode_value(_Type = 1, <<Double:64/little-signed-float, Rest/binary>>) ->
   {Double, Rest};
 
-decode_value(_Type = 2, <<Size:32/little-signed, Rest/binary>>)
-    when size(Rest) =:= Size + 1 ->
-  decode_cstring(Rest, []);
+decode_value(_Type = 2, <<Size:32/little-signed, Rest/binary>>) ->
+  {String, RestNext} = decode_cstring(Rest, []),
+  ActualSize = size(Rest) - size(RestNext),
+  case ActualSize =:= Size of
+      false ->
+          ?debugFmt("* ~p =:= ~p -> false", [ActualSize, Size]),
+          throw({invalid_length, expected, Size, ActualSize});
+      true ->
+          {String, RestNext}
+  end;
 
 decode_value(_Type = 3, <<Size:32/little-signed, Rest/binary>> = Binary)
     when size(Binary) >= Size ->
