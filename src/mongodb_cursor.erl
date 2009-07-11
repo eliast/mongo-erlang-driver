@@ -93,7 +93,7 @@ handle_next(State, From) ->
   catch
     _:Any ->
       ?debugVal(Any),
-      reply_(State, From, {error, Any})
+      reply_(State, From, {error, Any, erlang:get_stacktrace()})
   end.
 
 handle_response(_State, Response) ->
