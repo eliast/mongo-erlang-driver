@@ -20,13 +20,13 @@
 %% API functions
 
 %% gen_server callbacks
--export([init/1, 
+-export([init/1,
          handle_call/3,
-         handle_cast/2, 
+         handle_cast/2,
          handle_info/2,
          code_change/3,
          terminate/2]).
-         
+
 -record(connid, {
    lf, % count of how many outstanding calls are assigned to this connection
    pid % pid of the process handling the connection
@@ -44,7 +44,7 @@
    pools, % mapping PoolId -> pool tuple
    conns % mapping ConnPid -> pool tuple
 }).
-                
+
 %%====================================================================
 %% Public API
 %%====================================================================
@@ -103,14 +103,14 @@ stop() ->
     _:_Any ->
       {error, _Any}
   end.
-        
+
 %%%----------------------------------------------------------------------
 %%% API
 %%%----------------------------------------------------------------------
 
 database(PoolId, Name) ->
   mongodb_database:new(PoolId, Name).
-  
+
 send_message(PoolId, Operation, Message) ->
   gen_server:call(?MODULE, {PoolId, {send_message, Operation, Message}}).
 
@@ -147,7 +147,7 @@ handle_call({PoolId, add_to_pool, {Host, Port}}, _From, #state{pools=Pools, conn
     {ConnPid, Pool1} = add_conn(Pool, Host, Port),
     Pools1 = gb_trees:enter(PoolId, Pool1, Pools),
     Conns1 = gb_trees:enter(ConnPid, Pool1, Conns),
-    {reply, ok, #state{pools=Pools1, conns=Conns1}};    
+    {reply, ok, #state{pools=Pools1, conns=Conns1}};
 
 handle_call({PoolId, pool_size}, _From, #state{pools=Pools, conns=Conns}) ->
     {value, #pool{connections=Connections}} = gb_trees:lookup(PoolId, Pools),
@@ -161,7 +161,7 @@ handle_call({PoolId, pool_connections}, _From, #state{pools=Pools, conns=Conns})
 
 handle_call({PoolId, pool_create, {Host, Port}}, _From, State) ->
     {reply, ok, create_pool(PoolId, Host, Port, State)};
-    
+
 %% match all remaining API calls
 handle_call({PoolId, {send_message, Operation, Message}}, From, #state{pools=Pools, conns=Conns})  ->
     Pools1 = with_connection(
@@ -175,7 +175,7 @@ handle_call({PoolId, {send_message, Operation, Message}}, From, #state{pools=Poo
 
 handle_call(stop, _From, #state{pools=Pools, conns=Conns} =State) ->
   {Pools3, Conns3} = lists:foldl(
-      fun(Pool, {Pools2, Conns2}) -> 
+      fun(Pool, {Pools2, Conns2}) ->
           #pool{id=PoolId} = Pool,
           stop_pool(PoolId, Pools2, Conns2)
       end,
@@ -195,7 +195,7 @@ handle_cast({PoolId, {send_message, Operation, Method}}, #state{pools=Pools, con
         end
     ),
     {noreply, #state{pools=Pools1, conns=Conns}};
-        
+
 handle_cast(_Msg, State) ->
   ?debugVal([unknown_cast, _Msg]),
   {noreply, State}.
@@ -250,10 +250,10 @@ with_connection(PoolId, Pools, F) ->
     % get a connnection handler
     {value, #pool{id=PoolId, connections=Connections}} = gb_trees:lookup(PoolId, Pools),
     {#connid{lf=Usage, pid=ConnPid}, Connection, Connections1} = gb_trees:take_smallest(Connections),
-    
+
     % assign call to connection handler
     spawn(fun() -> F(ConnPid) end),
-    
+
     % update lf for the connection handler
     Usage1 = Usage + 1,
     Connections2 = gb_trees:enter(#connid{lf=Usage1, pid=ConnPid}, Connection, Connections1),
@@ -269,11 +269,11 @@ remove_connection_by_pid([_H|Rest], Connections, ConnPid) ->
 remove_connection_by_pid([], Connections, _ConnPid) ->
     Connections.
 
-stop_pool(PoolId, Pools, Conns) ->    
+stop_pool(PoolId, Pools, Conns) ->
     {value, #pool{id=PoolId, connections=Connections}} = gb_trees:lookup(PoolId, Pools),
     spawn(fun() ->
             lists:foreach(
-                fun(Conn) -> 
+                fun(Conn) ->
                     #connection{pid=ConnPid} = Conn,
                     mongodb_conn:stop(ConnPid)
                 end,

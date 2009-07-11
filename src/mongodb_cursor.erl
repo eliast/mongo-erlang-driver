@@ -25,7 +25,7 @@ start_link(State) ->
 start(SpawnMethod, State) ->
     Pid = SpawnMethod(fun() -> init(State) end),
     mongodb_cursor_api:new(Pid).
-  
+
 %%====================================================================
 %% Private stuff
 %%====================================================================
@@ -38,7 +38,7 @@ call_(ConnHandler, Message, From) when is_pid(From) -> % caller is just a regula
         Unknown -> {error, Unknown}
     after ?TIMEOUT ->
         {error, timeout}
-    end;    
+    end;
 call_(ConnHandler, Message, From) -> % caller is a gen_server process
     Self = self(),
     ConnHandler ! {handle_call, Self, Message},
@@ -54,7 +54,7 @@ cast_(ConnHandler, Message) ->
 
 init(State) ->
     loop(State).
-    
+
 loop(State) ->
     Self = self(),
     NewState = receive
@@ -73,7 +73,7 @@ loop(State) ->
 
 handle_next(#cursor{documents=[Next|Rest]} = State, From) ->
   reply_(State#cursor{documents=force_list(Rest)}, From, {handle_call, self(), Next});
-  
+
 handle_next(#cursor{documents=Next} = State, From) when not is_list(Next) ->
   reply_(State#cursor{documents=[]}, From, {handle_call, self(), Next});
 
@@ -103,13 +103,13 @@ handle_response(_State, Response) ->
       {ok, RequestId, CursorId, mongodb_bson:decode(Data)};
     <<Failure:32/little-signed, _Rest2/binary>> ->
       throw({failed, RequestId, Failure})
-  end.  
+  end.
 
 force_list(Item) when is_list(Item) ->
   Item;
 force_list(Item) ->
   [Item].
-  
+
 refresh(#cursor{pool=PoolId, collection=Collection, spec=Spec, skip=Skip, limit=Limit, fields=Fields, id=Id, cid=CursorId} = State) ->
   FullName = mongodb_bson:encode_cstring(Collection),
   if
@@ -135,9 +135,9 @@ refresh(#cursor{pool=PoolId, collection=Collection, spec=Spec, skip=Skip, limit=
       todo
   end.
 
-extract_header(<<Length:32/little-signed, RequestId:32/little-signed, 
+extract_header(<<Length:32/little-signed, RequestId:32/little-signed,
   ResponseTo:32/little-signed, OpCode:32/little-signed, Rest/binary>> = _Response) ->
-  {{Length, RequestId, ResponseTo, OpCode}, Rest}. 
+  {{Length, RequestId, ResponseTo, OpCode}, Rest}.
 
 %% send reply back to method calling process
 reply_(State, DestPid, Reply) ->

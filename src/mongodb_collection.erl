@@ -51,15 +51,15 @@ save({obj, PropList} = Document) ->
           Error
       end
   end.
-  
+
 remove({obj, PropList}) ->
   FullName = mongodb_bson:encode_cstring(full_name()),
   EncodedSpec = mongodb_bson:encode({obj, PropList}),
   mongodb:send_message(PoolId, 2006, <<0:32, FullName/binary, 0:32, EncodedSpec/binary>>).
-  
+
 find_one({oid, Id}) ->
   find_one({obj, [{"_id", {oid, Id}}]});
-  
+
 find_one(Spec) ->
   mongodb_cursor:start(#cursor{pool=PoolId, collection=full_name(), spec=Spec, limit=1}).
 

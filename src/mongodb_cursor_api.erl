@@ -13,7 +13,7 @@
 
 next() ->
   next(self()).
-  
+
 next(From) ->
   mongodb_cursor:call_(CursorPid, {next}, From).
 
@@ -28,7 +28,7 @@ count() ->
 
 count(From) ->
   mongodb_cursor:call_(CursorPid, {count}, From).
-  
+
 close() ->
   close(self()).
 
@@ -39,4 +39,4 @@ exhaust_cursor(_From, none, Accum) ->
   lists:reverse(Accum);
 exhaust_cursor(From, Next, Accum) ->
   exhaust_cursor(From, next(From), [Next|Accum]).
-  
+

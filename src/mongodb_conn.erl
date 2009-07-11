@@ -46,18 +46,18 @@ start(SpawnMethod, Host, Port) ->
     end.
 
 %% @doc stop the connection handler
-stop(ConnHandler) -> 
+stop(ConnHandler) ->
   stop(ConnHandler, self()).
-  
-stop(ConnHandler, From) -> 
+
+stop(ConnHandler, From) ->
   call_(ConnHandler, terminate, From).
 
 send_message(ConnHandler, Operation, Message) ->
   send_message(ConnHandler, Operation, Message, self()).
-  
+
 send_message(ConnHandler, Operation, Message, From) ->
   call_(ConnHandler, {send, Operation, Message}, From).
-  
+
 %%====================================================================
 %% Private stuff
 %%====================================================================
@@ -70,7 +70,7 @@ call_(ConnHandler, Message, From) when is_pid(From) -> % caller is just a regula
         Unknown -> {error, Unknown}
     after ?TIMEOUT ->
         {error, timeout}
-    end;    
+    end;
 call_(ConnHandler, Message, From) -> % caller is a gen_server process
     Self = self(),
     ConnHandler ! {handle_call, Self, Message},
@@ -142,7 +142,7 @@ recv_(Sock, CustomHandler) ->
       {tcp_closed, Sock} -> {error, conn_closed};
       {tcp_error, Sock, _Reason} -> {error, conn_error};
       Reply -> CustomHandler(Sock, Reply)
-    after ?TIMEOUT -> 
+    after ?TIMEOUT ->
       {error, timeout}
     end.
 
@@ -172,9 +172,9 @@ recv_until(Sock, Bin, ReqLength) when byte_size(Bin) < ReqLength ->
       recv_until(Sock, Combined, ReqLength);
    	{error, closed} ->
       connection_closed
-  after ?TIMEOUT -> 
+  after ?TIMEOUT ->
     timeout
-  end;    
+  end;
 recv_until(_Sock, Bin, ReqLength) when byte_size(Bin) =:= ReqLength ->
     {Bin, <<>>};
 recv_until(_Sock, Bin, ReqLength) when byte_size(Bin) > ReqLength ->
