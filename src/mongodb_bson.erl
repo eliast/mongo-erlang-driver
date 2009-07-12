@@ -24,8 +24,8 @@ hexstr_to_bin([X,Y|T], Acc) ->
   hexstr_to_bin(T, [V | Acc]).
 
 encode({obj,Items}) when is_list(Items) ->
-    Bin = list_to_binary(lists:map(fun encode_element/1, Items)),
-    <<(size(Bin)+5):32/little-signed,Bin/binary,0:8>>.
+  Bin = list_to_binary(lists:map(fun encode_element/1, Items)),
+  <<(size(Bin)+5):32/little-signed,Bin/binary,0:8>>.
 
 encode_element({Name, Value}) when is_list(Name), is_float(Value) ->
   NameEncoded = encode_cstring(Name),
@@ -76,10 +76,10 @@ encode_element({Name, false}) when is_list(Name) ->
   <<8, StringEncoded/binary, 1:8>>;
 
 encode_element({Name, {MegaSecs, Secs, MicroSecs}})
-      when  is_list(Name),
-            is_integer(MegaSecs),
-            is_integer(Secs),
-            is_integer(MicroSecs) ->
+  when  is_list(Name),
+        is_integer(MegaSecs),
+        is_integer(Secs),
+        is_integer(MicroSecs) ->
   StringEncoded = encode_cstring(Name),
   Unix = MegaSecs * 1000000 + Secs,
   Millis = Unix * 1000 + trunc(MicroSecs / 1000),
@@ -97,7 +97,7 @@ encode_element({Name, {regex, Expression, Flags}}) when is_list(Name), is_list(E
 
 encode_element({Name, {ref, Collection,
       <<First:8/little-binary-unit:8, Second:4/little-binary-unit:8>>}})
-          when is_list(Name), is_list(Collection) ->
+    when is_list(Name), is_list(Collection) ->
   StringEncoded = encode_cstring(Name),
   CollectionEncoded = encode_cstring(Collection),
   FirstReversed = lists:reverse(binary_to_list(First)),
@@ -115,8 +115,8 @@ encode_element({Name, Value}) when is_list(Name), is_integer(Value) ->
   <<16, StringEncoded/binary, Value:4/little-signed-unit:8>>.
 
 encode_cstring(String) when is_list(String) ->
-    Bin = unicode:characters_to_binary([String]),
-    <<Bin/binary, 0:8>>.
+  Bin = unicode:characters_to_binary([String]),
+  <<Bin/binary, 0:8>>.
 
 %% Size has to be greater than 4
 decode(<<Size:32/little-signed, Rest/binary>> = Binary) when byte_size(Binary) >= Size, Size > 4 ->
@@ -155,11 +155,11 @@ decode_value(_Type = 2, <<Size:32/little-signed, Rest/binary>>) ->
   {String, RestNext} = decode_cstring(Rest, []),
   ActualSize = size(Rest) - size(RestNext),
   case ActualSize =:= Size of
-      false ->
-          ?debugFmt("* ~p =:= ~p -> false", [ActualSize, Size]),
-          throw({invalid_length, expected, Size, ActualSize});
-      true ->
-          {String, RestNext}
+    false ->
+      ?debugFmt("* ~p =:= ~p -> false", [ActualSize, Size]),
+      throw({invalid_length, expected, Size, ActualSize});
+    true ->
+      {String, RestNext}
   end;
 
 decode_value(_Type = 3, <<Size:32/little-signed, Rest/binary>> = Binary)
