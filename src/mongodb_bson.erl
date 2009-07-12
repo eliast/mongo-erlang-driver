@@ -13,7 +13,7 @@
 
 bin_to_hexstr(Bin) ->
   lists:flatten([io_lib:format("~2.16.0B", [X]) ||
-    X <- binary_to_list(Bin)]).
+                  X <- binary_to_list(Bin)]).
 
 hexstr_to_bin(S) ->
   hexstr_to_bin(S, []).
@@ -76,10 +76,10 @@ encode_element({Name, false}) when is_list(Name) ->
   <<8, StringEncoded/binary, 1:8>>;
 
 encode_element({Name, {MegaSecs, Secs, MicroSecs}})
-  when  is_list(Name),
-        is_integer(MegaSecs),
-        is_integer(Secs),
-        is_integer(MicroSecs) ->
+    when is_list(Name),
+         is_integer(MegaSecs),
+         is_integer(Secs),
+         is_integer(MicroSecs) ->
   StringEncoded = encode_cstring(Name),
   Unix = MegaSecs * 1000000 + Secs,
   Millis = Unix * 1000 + trunc(MicroSecs / 1000),
