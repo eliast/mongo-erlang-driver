@@ -151,7 +151,7 @@ decode_cstring(<<C/utf8,Rest/binary>>, Acc) ->
 decode_value(_Type = 1, <<Double:64/little-signed-float, Rest/binary>>) ->
   {Double, Rest};
 
-decode_value(_Type = 2, <<Size:32/little-signed, Rest/binary>>) ->
+decode_value(_Type = 2, <<Size:32/little-signed, Rest/binary>>) when size(Rest) >= Size + 1 ->
   {String, RestNext} = decode_cstring(Rest, []),
   ActualSize = size(Rest) - size(RestNext),
   case ActualSize =:= Size of
