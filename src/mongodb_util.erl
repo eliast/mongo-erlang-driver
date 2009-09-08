@@ -13,8 +13,6 @@
 
 -compile(export_all).
 
--import(random).
-
 object_id() ->
     object_id(random:uniform(1 bsl 48) - 1, random:uniform(1 bsl 12) - 1, random:uniform(1 bsl 32) - 1, random:uniform(1 bsl 30) - 1).
 
